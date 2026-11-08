@@ -1,0 +1,23 @@
+---
+description: Better Auth client session and route gating for Restora
+globs: "{lib,app}/**/*.{js,jsx},middleware.js"
+alwaysApply: false
+---
+
+# Authentication
+
+- Use Better Auth’s official Next.js / React client only. Do not roll a custom JWT client.
+- Create a single `authClient` in `lib/auth-client.js` and reuse it (sign-in, sign-out, `useSession`).
+- Session and roles come from the server. Canonical roles: `admin`, `manager`, `waiter`, `chef`, `cashier`, `customer`.
+- Middleware/layouts may redirect unauthenticated users and hint role-based nav. Backend still enforces every mutation.
+- Never persist passwords, tokens, or “isAdmin” flags in `localStorage` as a security control.
+- Do not implement Better Auth on this repo as the auth server; that belongs on Express.
+
+```javascript
+// lib/auth-client.js
+import { createAuthClient } from "better-auth/react";
+
+export const authClient = createAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+});
+```

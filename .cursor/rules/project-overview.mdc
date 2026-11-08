@@ -1,0 +1,27 @@
+---
+description: Restora frontend project overview, stack, and module boundaries
+alwaysApply: true
+---
+
+# Restora – Frontend Overview
+
+This repo is **Restora** (Restaurant Management System) **client only**.
+Keep it separate from `RestaurentManagement-server`. Do not put Express, Mongoose, or server secrets here.
+
+## Stack
+
+- React.js, Next.js App Router, JavaScript (ES6+) only, Tailwind CSS
+- Never create `.ts`, `.tsx`, or `tsconfig.json`
+- Add Socket.IO client, Zod, Cloudinary uploads, Recharts, or payments only when a feature needs them
+
+## Architecture
+
+- UI and client-side composition live here
+- Business logic, authorization, and persistence live on the backend
+- Talk to the API over REST (`/api/v1/...`); never trust frontend role checks as security
+- Work incrementally; do not generate the whole app in one pass
+- Do not overwrite working code
+
+## UI modules (surfaces, not server logic)
+
+Admin/staff dashboards, customers, food/categories, tables, orders, kitchen, billing/payments, reservations, inventory, reviews, notifications, sales analytics.

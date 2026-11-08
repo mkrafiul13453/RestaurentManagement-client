@@ -1,0 +1,25 @@
+{
+  "name": "restora-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "better-auth": "^1.7.18",
+    "next": "^16.4.5",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "socket.io-client": "^4.8.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
+    "tailwindcss": "^4.3.5"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}

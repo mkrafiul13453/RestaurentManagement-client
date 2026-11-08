@@ -1,0 +1,32 @@
+---
+description: JavaScript-only coding standards for the Restora Next.js client
+globs: "**/*.{js,jsx}"
+alwaysApply: true
+---
+
+# JavaScript Standards
+
+- Use JavaScript (ES6+) only. Never add TypeScript, JSDoc-as-types systems, or `.ts`/`.tsx` files.
+- Use ES modules (`import` / `export`). Prefer named exports; default-export React pages/layouts only when Next.js requires it.
+- Use `const` / `let`. Never `var`. Prefer `async`/`await` over raw promises.
+- Use `jsconfig.json` for path aliases. Never add `tsconfig.json`.
+- Validate external input (API payloads, forms) with Zod at the boundary when validation is added.
+- Handle errors explicitly; do not swallow them.
+
+```javascript
+// ❌ BAD
+async function loadOrders() {
+  try {
+    return await api.get("/orders");
+  } catch (e) {}
+}
+
+// ✅ GOOD
+async function loadOrders() {
+  try {
+    return await api.get("/orders");
+  } catch (error) {
+    throw error;
+  }
+}
+```

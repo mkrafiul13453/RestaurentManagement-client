@@ -1,0 +1,31 @@
+---
+description: REST API client conventions aligned with the Restora backend
+globs: "{lib,services}/**/*.{js,jsx}"
+alwaysApply: false
+---
+
+# API Integration
+
+- One HTTP client in `lib/api` (fetch wrapper). Feature modules export functions like `getOrders()`, not raw `fetch` in components.
+- Base URL from `NEXT_PUBLIC_API_URL`. Send cookies (`credentials: "include"`) for Better Auth sessions.
+- REST prefix: `/api/v1`. Resources:
+
+`/customers` `/categories` `/menu-items` `/tables` `/orders` `/kitchen` `/payments` `/reservations` `/ingredients` `/inventory` `/reviews` `/notifications` `/analytics`
+
+- Envelope: `{ success, data, message, error }`. Map HTTP 4xx/5xx into thrown errors the UI can show.
+- Never put API secrets, Cloudinary keys, or webhook secrets in client code.
+- Do not invent endpoints or permissions. UI hide/show is not authorization.
+- Use Socket.IO later only for live kitchen/order boards; CRUD stays REST.
+
+```javascript
+export async function apiGet(path) {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1${path}`, {
+    credentials: "include",
+  });
+  const body = await res.json();
+  if (!res.ok || !body.success) {
+    throw new Error(body.message || body.error || "Request failed");
+  }
+  return body;
+}
+```

@@ -1,0 +1,27 @@
+---
+description: Next.js App Router structure and React patterns for Restora
+globs: "{app,src,components,lib,hooks}/**/*.{js,jsx}"
+alwaysApply: false
+---
+
+# Frontend Development
+
+- Use the App Router under `app/`. Use `.jsx` for pages, layouts, loading/error/not-found files, and any file containing JSX; use `.js` for non-React utilities and helpers.
+- Server Components by default. Add `'use client'` only for interactivity, browser APIs, or client hooks.
+- Route groups: `app/(public)`, `app/(admin)`, `app/(manager)`, `app/(waiter)`, `app/(chef)`, `app/(cashier)`, and `app/(customer)`. Keep their role names aligned with the server; route gating is UX, not authorization.
+- Put shared UI in `components/`, fetch/API helpers in `lib/`, reusable client logic in `hooks/`.
+- Colocate feature UI (for example `components/orders/OrderTable.jsx`) instead of one giant file.
+- Keep pages thin: compose components and call lib helpers; do not embed business rules.
+- Fetch on the server when possible; use client fetches for live/kitchen/interactive views.
+- Implement one flow at a time. Do not scaffold every module at once.
+
+```javascript
+// app/(admin)/orders/page.jsx — server component, no 'use client'
+import { OrderTable } from "../../../components/orders/OrderTable";
+import { getOrders } from "../../../lib/api/orders";
+
+export default async function OrdersPage() {
+  const { data } = await getOrders();
+  return <OrderTable orders={data ?? []} />;
+}
+```

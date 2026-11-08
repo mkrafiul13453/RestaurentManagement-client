@@ -1,0 +1,23 @@
+---
+description: Responsive Tailwind UI/UX standards for Restora dashboards
+globs: "{app,src,components}/**/*.{js,jsx,css}"
+alwaysApply: false
+---
+
+# UI / UX Design
+
+- Mobile-first Tailwind. Layouts must work on phone, tablet, and desktop dashboards.
+- Professional restaurant-ops look: clear hierarchy, dense but readable tables, obvious primary actions.
+- Every list/table needs loading, empty, and error states.
+- Forms: labeled inputs, inline validation messages, disabled submit while pending.
+- Modals/drawers must be keyboard-usable and closable; icon-only buttons need `aria-label`.
+- Do not hide destructive actions (void bill, cancel reservation) behind unconfirmed clicks.
+- Use Recharts only on analytics views, with a non-chart fallback when data is empty.
+- Prefer shared primitives (`Button`, `Card`, `DataTable`, `PageHeader`) over one-off styles.
+
+```javascript
+// ✅ GOOD — empty state, not a blank table
+if (!orders.length) {
+  return <p className="text-sm text-slate-500">No open orders.</p>;
+}
+```
