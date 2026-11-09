@@ -10,6 +10,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { cancelPayment, listPayments, refundPayment } from "@/lib/payments-api";
 import { formatMoney } from "@/lib/money";
 
+const pageSize = 10;
+
 function PaymentStatus({ status }) {
   const styles = {
     pending: "bg-amber-100 text-amber-900",
@@ -27,6 +29,8 @@ function PaymentStatus({ status }) {
 
 export function PaymentHistory({ role, compact = false }) {
   const [payments, setPayments] = useState([]);
+  const [meta, setMeta] = useState({ page: 1, total: 0, totalPages: 0 });
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [notice, setNotice] = useState("");
@@ -39,20 +43,29 @@ export function PaymentHistory({ role, compact = false }) {
     setLoading(true);
     setLoadError(null);
     try {
-      const response = await listPayments({ limit: 50, signal });
+      const response = await listPayments({ page, limit: pageSize, signal });
       setPayments(response.data.payments);
+      setMeta(response.meta);
     } catch (error) {
       if (error.name !== "AbortError") setLoadError(error);
     } finally {
       if (!signal.aborted) setLoading(false);
     }
-  }, [refreshKey]);
+  }, [page, refreshKey]);
 
   useEffect(() => {
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
   }, [load]);
+
+  useEffect(() => {
+    if (!payments.some((payment) => payment.status === "pending")) return undefined;
+    const timer = window.setInterval(() => {
+      setRefreshKey((key) => key + 1);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [payments]);
 
   async function act(payment, action) {
     setBusyPaymentId(payment._id);
@@ -77,9 +90,11 @@ export function PaymentHistory({ role, compact = false }) {
     <section className={compact ? "mt-8" : ""}>
       {!compact && (
         <PageHeader
-          description="Review Stripe payment attempts. Refunds and cancellations are finalized by verified Stripe webhooks."
+          description={role === "customer"
+            ? "Review your Stripe payments. Final payment statuses are confirmed by Stripe."
+            : "Review Stripe payment attempts. Refunds and cancellations are finalized by verified Stripe webhooks."}
           eyebrow="Billing"
-          title="Payments"
+          title={role === "customer" ? "My payments" : "Payments"}
         />
       )}
       {notice && (
@@ -97,7 +112,9 @@ export function PaymentHistory({ role, compact = false }) {
         />
       ) : payments.length === 0 ? (
         <EmptyState
-          description="Payments will appear here after a customer starts Stripe Checkout."
+          description={role === "customer"
+            ? "Payments will appear here after you start Stripe Checkout from an order."
+            : "Payments will appear here after a customer starts Stripe Checkout."}
           title="No payment history yet"
         />
       ) : (
@@ -143,6 +160,27 @@ export function PaymentHistory({ role, compact = false }) {
             </Card>
           ))}
         </div>
+      )}
+      {!loading && !loadError && meta.totalPages > 1 && (
+        <nav aria-label="Payment pages" className="mt-6 flex items-center justify-between gap-3">
+          <p className="text-sm text-stone-600">Page {meta.page} of {meta.totalPages}</p>
+          <div className="flex gap-2">
+            <Button
+              disabled={page <= 1}
+              onClick={() => setPage((value) => value - 1)}
+              variant="secondary"
+            >
+              Previous
+            </Button>
+            <Button
+              disabled={page >= meta.totalPages}
+              onClick={() => setPage((value) => value + 1)}
+              variant="secondary"
+            >
+              Next
+            </Button>
+          </div>
+        </nav>
       )}
       <ConfirmDialog
         busy={busyPaymentId === refundTarget?._id}

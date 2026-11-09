@@ -1,5 +1,5 @@
-import { WorkspaceHome } from "@/components/workspace/workspace-home";
+import { CustomerDashboard } from "@/components/customer/customer-dashboard";
 
 export default function CustomerWorkspacePage() {
-  return <WorkspaceHome role="customer" title="Customer overview" />;
+  return <CustomerDashboard />;
 }

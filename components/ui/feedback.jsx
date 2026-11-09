@@ -2,6 +2,9 @@ import Link from "next/link";
 import { useId } from "react";
 import { Button } from "./button";
 import { Card } from "./card";
+import { getSafeDisplayMessage } from "@/lib/safe-message";
+
+export { getSafeDisplayMessage };
 
 export function LoadingState({
   label = "Loading",
@@ -40,17 +43,6 @@ export function EmptyState({
       {action && <div className="mt-5">{action}</div>}
     </Card>
   );
-}
-
-export function getSafeDisplayMessage(message, fallback = "Please try again.") {
-  return (
-    typeof message === "string" &&
-    message.length > 0 &&
-    message.length <= 180 &&
-    !/(\bat\s+\S+\s+\(|https?:\/\/|mongodb(\+srv)?:|stack|exception:)/i.test(message)
-  )
-    ? message
-    : fallback;
 }
 
 export function ErrorState({

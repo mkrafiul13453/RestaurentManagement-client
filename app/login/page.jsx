@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { getSafePostAuthPath, normalizeRole } from "@/lib/roles";
-import { getSafeDisplayMessage } from "@/components/ui/feedback";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
 
 export default function LoginPage() {
   const [mode, setMode] = useState("sign-in");
@@ -31,38 +30,19 @@ export default function LoginPage() {
             });
 
       if (result.error) {
-        setErrorMessage(
-          getSafeDisplayMessage(
-            result.error.message,
-            "Authentication failed. Please try again.",
-          ),
-        );
+        setErrorMessage(getAuthErrorMessage(result.error, mode));
         return;
       }
 
       const sessionResult = await authClient.getSession();
       if (sessionResult.error) {
-        setErrorMessage(
-          getSafeDisplayMessage(
-            sessionResult.error.message,
-            "We couldn't verify your account role. Please try signing in again.",
-          ),
-        );
+        setErrorMessage(getAuthErrorMessage(sessionResult.error, mode));
         return;
       }
 
-      const role = normalizeRole(
-        sessionResult.data?.user?.role ?? result.data?.user?.role,
-      ) || "customer";
-      const requestedPath = new URLSearchParams(window.location.search).get("next");
-      window.location.assign(getSafePostAuthPath(requestedPath, role));
+      window.location.assign("/");
     } catch (error) {
-      setErrorMessage(
-        getSafeDisplayMessage(
-          error instanceof Error ? error.message : "",
-          "Authentication failed. Please try again.",
-        ),
-      );
+      setErrorMessage(getAuthErrorMessage(error, mode));
     } finally {
       setIsSubmitting(false);
     }

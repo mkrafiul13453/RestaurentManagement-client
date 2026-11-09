@@ -6,10 +6,10 @@ import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
 import { PageHeader } from "@/components/ui/page-header";
-import { PaymentHistory } from "@/components/payments/payment-history";
 import { useOrderRealtime } from "@/lib/kitchen-realtime";
 import { formatMoney } from "@/lib/money";
 import { createCheckoutSession } from "@/lib/payments-api";
+import { createReview, listReviews } from "@/lib/reviews-api";
 import { listTables } from "@/lib/tables-api";
 import {
   changeOrderStatus,
@@ -231,8 +231,79 @@ function OrderActions({ order, role, busy, onChange, onCancel }) {
   ) : null;
 }
 
+function OrderReview({ orderId, review, onSubmitted, setNotice }) {
+  const [rating, setRating] = useState("5");
+  const [text, setText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event) {
+    event.preventDefault();
+    setError("");
+    setSaving(true);
+    try {
+      const savedReview = await createReview({
+        orderId,
+        rating: Number(rating),
+        text,
+      });
+      onSubmitted(savedReview);
+      setNotice("Thank you. Your review has been submitted.");
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (review) {
+    return (
+      <section aria-label="Your review" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <p className="font-semibold text-emerald-950">Your review · {review.rating}/5</p>
+        <p className="mt-1 whitespace-pre-wrap text-sm text-emerald-900">{review.text}</p>
+      </section>
+    );
+  }
+
+  return (
+    <form className="mt-4 rounded-xl border border-stone-200 bg-stone-50 p-4" onSubmit={submit}>
+      <h3 className="font-semibold text-stone-950">Review this completed order</h3>
+      <div className="mt-3 grid gap-3 sm:grid-cols-[10rem_1fr]">
+        <label className="text-sm font-medium text-stone-700">
+          Rating
+          <select
+            className="mt-1 min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3"
+            onChange={(event) => setRating(event.target.value)}
+            value={rating}
+          >
+            {[5, 4, 3, 2, 1].map((value) => (
+              <option key={value} value={value}>{value} / 5</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm font-medium text-stone-700">
+          Your review
+          <textarea
+            className="mt-1 min-h-24 w-full rounded-lg border border-stone-300 bg-white px-3 py-2"
+            maxLength={1000}
+            minLength={10}
+            onChange={(event) => setText(event.target.value)}
+            required
+            value={text}
+          />
+        </label>
+      </div>
+      <p className="mt-1 text-xs text-stone-500">Share 10–1000 characters. One review is allowed per order.</p>
+      {error && <p className="mt-2 text-sm text-red-800" role="alert">{error}</p>}
+      <Button className="mt-3" disabled={text.trim().length < 10} loading={saving} type="submit">
+        Submit review
+      </Button>
+    </form>
+  );
+}
+
 export function OrderManagement({ role }) {
-  const canCreate = ["admin", "manager", "waiter", "customer"].includes(role);
+  const canCreate = ["admin", "manager", "waiter"].includes(role);
   const [orders, setOrders] = useState([]);
   const [meta, setMeta] = useState({ page: 1, limit: pageSize, total: 0, totalPages: 0 });
   const [page, setPage] = useState(1);
@@ -244,6 +315,10 @@ export function OrderManagement({ role }) {
   const [cancelTarget, setCancelTarget] = useState(null);
   const [payingOrderId, setPayingOrderId] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [reviews, setReviews] = useState({});
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState(null);
+  const [reviewRefreshKey, setReviewRefreshKey] = useState(0);
 
   const requestRefresh = useCallback(() => setRefreshKey((key) => key + 1), []);
   const live = useOrderRealtime(requestRefresh);
@@ -271,6 +346,41 @@ export function OrderManagement({ role }) {
     void loadOrders(controller.signal);
     return () => controller.abort();
   }, [loadOrders]);
+
+  const completedOrderIds = role === "customer"
+    ? orders.filter((order) => order.status === "completed").map((order) => order._id)
+    : [];
+  const completedOrderKey = completedOrderIds.join(",");
+
+  useEffect(() => {
+    if (role !== "customer" || !completedOrderKey) {
+      setReviews({});
+      setReviewError(null);
+      setReviewLoading(false);
+      return undefined;
+    }
+    const controller = new AbortController();
+    setReviewLoading(true);
+    setReviewError(null);
+    listReviews({
+      page: 1,
+      limit: 100,
+      orderIds: completedOrderKey.split(","),
+      signal: controller.signal,
+    })
+      .then((response) => {
+        setReviews(Object.fromEntries(
+          response.data.reviews.map((review) => [review.orderId, review]),
+        ));
+      })
+      .catch((failure) => {
+        if (failure.name !== "AbortError") setReviewError(failure);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setReviewLoading(false);
+      });
+    return () => controller.abort();
+  }, [completedOrderKey, refreshKey, reviewRefreshKey, role]);
 
   async function transition(order, status) {
     setBusy(true);
@@ -317,7 +427,7 @@ export function OrderManagement({ role }) {
           </div>
         }
         description={role === "customer"
-          ? "Place an order and review your own order history."
+          ? "Review your order history, follow live kitchen status, and pay securely with Stripe."
           : "Review orders and take actions allowed for your role."}
         eyebrow="Restaurant operations"
         title={role === "customer" ? "My orders" : "Order management"}
@@ -327,6 +437,14 @@ export function OrderManagement({ role }) {
         <p className="mb-5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-950" role="status">
           {notice}
         </p>
+      )}
+      {reviewError && (
+        <ErrorState
+          className="mb-5"
+          error={reviewError}
+          message="Your review history could not be loaded."
+          onRetry={() => setReviewRefreshKey((key) => key + 1)}
+        />
       )}
 
       {canCreate && (
@@ -392,6 +510,69 @@ export function OrderManagement({ role }) {
                   <PaymentStatus status={order.paymentStatus} />
                 </div>
               </div>
+              <details className="mt-4 rounded-xl border border-stone-200 px-4">
+                <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-orange-800 focus-visible:outline-2 focus-visible:outline-orange-700">
+                  View order details
+                </summary>
+                <div className="border-t border-stone-100 py-3">
+                  {order.lines?.length ? (
+                    <ul className="space-y-2">
+                      {order.lines.map((line, index) => (
+                        <li
+                          className="flex flex-col justify-between gap-1 text-sm sm:flex-row sm:gap-4"
+                          key={`${line.menuItemId ?? line.nameSnapshot}-${index}`}
+                        >
+                          <span className="text-stone-700">
+                            {line.nameSnapshot} × {line.quantity}
+                          </span>
+                          <span className="font-medium text-stone-800">
+                            {formatMoney(line.lineTotalMinor)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-stone-600">Order line details are unavailable.</p>
+                  )}
+                  {order.billing && (
+                    <dl className="mt-3 space-y-1 border-t border-stone-100 pt-3 text-sm">
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-stone-600">Subtotal</dt>
+                        <dd>{formatMoney(order.billing.subtotalMinor)}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-stone-600">Tax</dt>
+                        <dd>{formatMoney(order.billing.taxMinor)}</dd>
+                      </div>
+                      {order.billing.discountMinor > 0 && (
+                        <div className="flex justify-between gap-4">
+                          <dt className="text-stone-600">Discount</dt>
+                          <dd>−{formatMoney(order.billing.discountMinor)}</dd>
+                        </div>
+                      )}
+                      <div className="flex justify-between gap-4 font-bold text-stone-950">
+                        <dt>Total</dt>
+                        <dd>{formatMoney(order.billing.totalMinor)}</dd>
+                      </div>
+                    </dl>
+                  )}
+                </div>
+              </details>
+              {role === "customer" && order.status === "completed" && (
+                reviewLoading ? (
+                  <LoadingState compact label="Loading your review..." />
+                ) : (
+                  <OrderReview
+                    onSubmitted={(review) => setReviews((current) => ({
+                      ...current,
+                      [review.orderId]: review,
+                    }))}
+                    orderId={order._id}
+                    review={reviews[order._id]}
+                    setNotice={setNotice}
+                  />
+                )
+              )}
               <div className="mt-4 flex flex-col gap-3 border-t border-stone-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-stone-700">
                   {order.billing ? (
@@ -440,8 +621,6 @@ export function OrderManagement({ role }) {
           </div>
         </nav>
       )}
-
-      {role === "customer" && <PaymentHistory compact role={role} />}
 
       <ConfirmDialog
         confirmLabel="Cancel order"
